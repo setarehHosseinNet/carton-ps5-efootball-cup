@@ -1,0 +1,43 @@
+﻿{
+    "name":  "web",
+    "version":  "0.1.0",
+    "private":  true,
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "next dev --turbopack -p 3000",
+                    "build":  "next build --turbopack",
+                    "start":  "next start -p 3000",
+                    "lint":  "next lint",
+                    "prisma:gen":  "prisma generate",
+                    "prisma:migrate":  "prisma migrate dev --name init",
+                    "prisma:studio":  "prisma studio",
+                    "db:seed":  "tsx prisma/seed.ts",
+                    "postinstall":  "prisma generate",
+		    "db:seed": "tsx prisma/seed.ts"
+                },
+    "dependencies":  {
+                         "@prisma/client":  "^6.16.3",
+                         "next":  "15.5.4",
+                         "react":  "19.1.0",
+                         "react-dom":  "19.1.0"
+                     },
+    "devDependencies":  {
+                            "@eslint/eslintrc":  "^3.2.0",
+                            "@types/node":  "^20.16.11",
+                            "@types/react":  "^19.0.8",
+                            "@types/react-dom":  "^19.0.3",
+                            "eslint":  "^9.12.0",
+                            "eslint-config-next":  "15.5.4",
+                            "postcss":  "^8.4.47",
+                            "prisma":  "^6.16.3",
+                            "tailwindcss":  "^4.0.0",
+                            "@tailwindcss/postcss":  "^4.0.0",
+                            "ts-node":  "^10.9.2",
+                            "tsx":  "^4.19.2",
+                            "typescript":  "^5.6.3"
+                        },
+    "engines":  {
+                    "node":  "\u003e=18.18.0"
+                },
+    "packageManager":  "pnpm@9.12.3"
+}

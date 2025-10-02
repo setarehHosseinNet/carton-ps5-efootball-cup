@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./tournament.sqlite"
+}
+
+model Group {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  players Player[]
+  matches Match[]
+}
+
+model Player {
+  id          Int      @id @default(autoincrement())
+  fullName    String
+  dept        String?
+  groupId     Int
+  group       Group    @relation(fields: [groupId], references: [id])
+  homeMatches Match[]  @relation("home")
+  awayMatches Match[]  @relation("away")
+}
+
+enum MatchStatus {
+  SCHEDULED
+  DONE
+}
+
+model Match {
+  id        Int       @id @default(autoincrement())
+  groupId   Int
+  group     Group     @relation(fields: [groupId], references: [id])
+
+  homeId    Int
+  home      Player    @relation("home", fields: [homeId], references: [id])
+  awayId    Int
+  away      Player    @relation("away", fields: [awayId], references: [id])
+
+  gHome     Int?
+  gAway     Int?
+  kickOff   DateTime?
+  status    MatchStatus @default(SCHEDULED)
+  week      Int?
+}
