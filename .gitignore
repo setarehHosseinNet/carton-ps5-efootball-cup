@@ -1,0 +1,18 @@
+﻿# Node/Next
+web/node_modules/
+web/.next/
+web/.turbo/
+**/*.log
+
+# Database (اختیاری؛ اگر نمی‌خوای DB داخل گیت باشه، نگه‌دار)
+web/prisma/*.sqlite
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local scratch
+DEV.md
+test.py
