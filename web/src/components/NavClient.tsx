@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const LINKS = [
-  { href: "/", label: "خانه" },
+  { href: "/", label: "تابلو اعلانات" },
+  { href: "/reports/new", label: "گزارش جدید" },
   { href: "/setup", label: "راه‌اندازی" },
   { href: "/fixtures", label: "برنامه بازی‌ها" },
   { href: "/admin", label: "ثبت نتایج" },

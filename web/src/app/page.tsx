@@ -1,42 +1,41 @@
-﻿import { prisma } from "@/lib/db";
+﻿import Link from "next/link";
+import { prisma } from "@/lib/db";
+
+export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const groups = await prisma.group.count();
-  const matches = await prisma.match.count();
-  const done = await prisma.match.count({ where: { status: "DONE" } });
+  const items = await prisma.report.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { medias: true },
+    take: 50,
+  });
 
   return (
-    <div className="space-y-8">
-      {/* هرو */}
-      <section className="rounded-3xl bg-white border shadow-sm p-8">
-        <h1 className="text-3xl md:text-4xl font-extrabold mb-3">
-          مسابقات <span className="text-pink-600">eFootball</span> – کارتن محمد
-        </h1>
-        <p className="text-slate-600 mb-6">
-          ثبت نتایج، جدول گروه‌ها، و برنامهٔ مسابقات با رابط کاربری فارسی/RTL.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <a href="/setup" className="px-5 py-2.5 rounded-2xl bg-black text-white no-underline">شروع سریع</a>
-          <a href="/admin" className="px-5 py-2.5 rounded-2xl bg-pink-600 text-white no-underline">ثبت نتایج</a>
-          <a href="/groups" className="px-5 py-2.5 rounded-2xl bg-slate-200 no-underline">مشاهده جدول‌ها</a>
-        </div>
-      </section>
+    <main className="container mx-auto p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">تابلو اعلانات</h1>
+        <Link href="/reports/new" className="no-underline rounded-xl px-4 py-2 bg-black text-white">
+          گزارش جدید
+        </Link>
+      </div>
 
-      {/* آمار کوتاه */}
-      <section className="grid sm:grid-cols-3 gap-4">
-        <div className="rounded-2xl bg-white border p-4 text-center">
-          <div className="text-3xl font-extrabold">{groups}</div>
-          <div className="text-slate-600 text-sm mt-1">گروه</div>
-        </div>
-        <div className="rounded-2xl bg-white border p-4 text-center">
-          <div className="text-3xl font-extrabold">{matches}</div>
-          <div className="text-slate-600 text-sm mt-1">کل بازی‌ها</div>
-        </div>
-        <div className="rounded-2xl bg-white border p-4 text-center">
-          <div className="text-3xl font-extrabold">{done}</div>
-          <div className="text-slate-600 text-sm mt-1">بازی‌های ثبت‌شده</div>
-        </div>
-      </section>
-    </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {items.map((r) => {
+          const cover = r.medias[0]?.url;
+          return (
+            <Link
+              key={r.id}
+              href={`/reports/${encodeURIComponent(r.slug)}`}
+              className="block no-underline border rounded p-4 hover:bg-slate-50"
+            >
+              {cover && <img src={cover} className="rounded w-full h-40 object-cover mb-3" />}
+              <h2 className="font-bold text-lg mb-1">{r.title}</h2>
+              <p className="text-slate-600 text-sm">{r.summary || r.content.slice(0, 120)}</p>
+              <div className="text-xs text-slate-500 mt-2">❤️ {r.likesCount} • 💬 {r.commentsCount}</div>
+            </Link>
+          );
+        })}
+      </div>
+    </main>
   );
 }

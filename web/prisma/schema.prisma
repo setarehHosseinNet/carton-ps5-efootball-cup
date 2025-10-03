@@ -45,3 +45,60 @@ model Match {
   status    MatchStatus @default(SCHEDULED)
   week      Int?
 }
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Report {
+  id         Int        @id @default(autoincrement())
+  slug       String     @unique
+  title      String
+  summary    String?
+  content    String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  medias     Media[]
+  likes      Like[]
+  comments   Comment[]
+
+  // شمارنده‌های سریع برای لیست‌ها
+  likesCount    Int      @default(0)
+  commentsCount Int      @default(0)
+}
+
+model Media {
+  id        Int        @id @default(autoincrement())
+  reportId  Int
+  report    Report     @relation(fields: [reportId], references: [id])
+  type      MediaType
+  url       String
+  width     Int?
+  height    Int?
+  duration  Int?
+  createdAt DateTime   @default(now())
+}
+
+model Like {
+  id         Int     @id @default(autoincrement())
+  reportId   Int
+  report     Report  @relation(fields: [reportId], references: [id])
+  fingerprint String  // از کوکی+IP هش می‌سازیم
+  createdAt  DateTime @default(now())
+
+  @@unique([reportId, fingerprint])
+}
+
+model Comment {
+  id         Int        @id @default(autoincrement())
+  reportId   Int
+  report     Report     @relation(fields: [reportId], references: [id])
+  author     String?
+  content    String
+  createdAt  DateTime   @default(now())
+  approved   Boolean    @default(true)
+
+  parentId   Int?
+  parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
+  replies    Comment[]  @relation("CommentReplies")
+}
