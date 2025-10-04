@@ -102,3 +102,19 @@ model Comment {
   parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
   replies    Comment[]  @relation("CommentReplies")
 }
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("user") // "admin" یا "user"
+  createdAt    DateTime @default(now())
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime // مثلاً 7 روز بعد؛ در کد ست می‌کنیم
+}

@@ -1,37 +1,36 @@
-﻿import Link from "next/link";
-import { prisma } from "@/lib/db";
+﻿import prisma from "@/lib/db";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const items = await prisma.report.findMany({
     orderBy: { createdAt: "desc" },
-    include: { medias: true },
-    take: 50,
+    take: 20,
+    include: {
+      medias: { take: 1, orderBy: { id: "asc" } },
+    },
   });
 
   return (
     <main className="container mx-auto p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">تابلو اعلانات</h1>
-        <Link href="/reports/new" className="no-underline rounded-xl px-4 py-2 bg-black text-white">
-          گزارش جدید
-        </Link>
-      </div>
+      <h1 className="text-2xl font-bold mb-4">تابلو اعلانات</h1>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4">
         {items.map((r) => {
-          const cover = r.medias[0]?.url;
+          const cover = r.medias[0]?.url ?? "";
           return (
             <Link
               key={r.id}
               href={`/reports/${encodeURIComponent(r.slug)}`}
-              className="block no-underline border rounded p-4 hover:bg-slate-50"
+              className="block border rounded p-4 no-underline hover:bg-slate-50"
             >
-              {cover && <img src={cover} className="rounded w-full h-40 object-cover mb-3" />}
-              <h2 className="font-bold text-lg mb-1">{r.title}</h2>
-              <p className="text-slate-600 text-sm">{r.summary || r.content.slice(0, 120)}</p>
-              <div className="text-xs text-slate-500 mt-2">❤️ {r.likesCount} • 💬 {r.commentsCount}</div>
+              <h2 className="text-lg font-bold mb-2">{r.title}</h2>
+              {cover ? (
+                // از <img> ساده استفاده می‌کنیم تا مشکل domain نداشته باشیم
+                <img src={cover} alt={r.title} className="w-full rounded mb-3" />
+              ) : null}
+              <p className="text-slate-600">{r.summary}</p>
             </Link>
           );
         })}

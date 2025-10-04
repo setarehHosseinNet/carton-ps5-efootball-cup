@@ -1,24 +1,22 @@
 "use client";
-import { useEffect } from "react";
 
 export default function GlobalError({
   error,
   reset,
-}: { error: Error; reset: () => void }) {
-  useEffect(() => {
-    console.error("SSR error:", error);
-  }, [error]);
-
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
   return (
-    <html dir="rtl">
-      <body className="p-6">
+    <html lang="fa" dir="rtl">
+      <body className="container mx-auto p-6">
         <h1 className="text-2xl font-bold mb-2">خطای سرور</h1>
-        <p className="text-sm text-slate-600 mb-4">
-          {error?.message || "اشکالی رخ داده است."}
-        </p>
+        {error.digest && (
+          <p className="text-sm text-slate-500 mb-4">Digest: {error.digest}</p>
+        )}
         <button
           onClick={() => reset()}
-          className="px-3 py-2 rounded bg-black text-white"
+          className="px-4 py-2 rounded bg-indigo-600 text-white"
         >
           تلاش دوباره
         </button>

@@ -1,8 +1,7 @@
 "use client";
-
 import { useState } from "react";
 
-export default function LikeButton({ reportId, initialCount }: { reportId: number; initialCount: number }) {
+export default function LikeButton({ slug, initialCount }: { slug: string; initialCount: number }) {
   const [count, setCount] = useState(initialCount);
   const [busy, setBusy] = useState(false);
 
@@ -10,7 +9,7 @@ export default function LikeButton({ reportId, initialCount }: { reportId: numbe
     if (busy) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/reports/${reportId}/like`, { method: "POST" });
+      const res = await fetch(`/api/reports/${slug}/like`, { method: "POST" });
       if (res.ok) setCount(c => c + 1);
     } finally {
       setBusy(false);
@@ -18,7 +17,7 @@ export default function LikeButton({ reportId, initialCount }: { reportId: numbe
   }
 
   return (
-    <button onClick={like} disabled={busy} className="px-3 py-2 rounded bg-pink-600 text-white disabled:opacity-50">
+    <button onClick={like} disabled={busy} className="px-3 py-2 rounded bg-pink-600 text-white">
       ❤️ لایک ({count})
     </button>
   );
