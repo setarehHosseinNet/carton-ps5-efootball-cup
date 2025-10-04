@@ -6,12 +6,17 @@ import CommentForm from "./comment.client";
 export const dynamic = "force-dynamic";
 
 export default async function ReportPage({ params }: { params: { slug: string } }) {
-    const { slug } = await params;                       // ← await
+  const slug = decodeURIComponent(params.slug);
+
   const report = await prisma.report.findFirst({
-    where: { slug: decodeURIComponent(slug) },
+    where: { slug },
     include: {
       medias: { orderBy: { id: "asc" } },
-      comments: { where: { approved: true }, orderBy: { createdAt: "desc" } },
+      comments: {
+        where: { approved: true },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, author: true, content: true, createdAt: true },
+      },
     },
   });
 
