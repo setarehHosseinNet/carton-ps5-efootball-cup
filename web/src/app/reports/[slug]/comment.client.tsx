@@ -1,32 +1,25 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
-export default function CommentForm({ slug }: { slug: string }) {
+export default function CommentForm({ reportSlug }: { reportSlug: string }) {
   const [author, setAuthor] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const router = useRouter();
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (busy) return;
+  async function submit() {
+    if (!content.trim()) return;
     setBusy(true);
     try {
-      const res = await fetch(
-        `/api/reports/${encodeURIComponent(slug)}/comment`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ author, content }),
-        }
-      );
-      const data = await res.json().catch(() => ({}));
+      const res = await fetch(`/api/reports/${encodeURIComponent(reportSlug)}/comment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ author, content }),
+      });
       if (res.ok) {
-        setAuthor("");
-        setContent("");
-        setMsg("ثبت شد ✅ (پس از تأیید نمایش داده می‌شود)");
-      } else {
-        setMsg(data.error || "خطا در ثبت نظر");
+        setAuthor(""); setContent("");
+        router.refresh(); // لیست نظرات بروز شود
       }
     } finally {
       setBusy(false);
@@ -34,28 +27,23 @@ export default function CommentForm({ slug }: { slug: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <div className="space-y-2">
       <input
         value={author}
-        onChange={(e) => setAuthor(e.target.value)}
+        onChange={e => setAuthor(e.target.value)}
         placeholder="نام (اختیاری)"
         className="w-full border rounded p-2"
       />
       <textarea
         value={content}
-        onChange={(e) => setContent(e.target.value)}
-        required
-        rows={4}
-        placeholder="نظر شما..."
+        onChange={e => setContent(e.target.value)}
+        placeholder="نظر شما…"
         className="w-full border rounded p-2"
+        rows={4}
       />
-      <button
-        className="px-3 py-2 rounded bg-emerald-600 text-white disabled:opacity-50"
-        disabled={busy}
-      >
+      <button onClick={submit} disabled={busy} className="px-3 py-2 rounded bg-emerald-600 text-white disabled:opacity-60">
         ارسال نظر
       </button>
-      {msg && <div className="text-sm text-slate-600">{msg}</div>}
-    </form>
+    </div>
   );
 }

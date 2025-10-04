@@ -51,32 +51,30 @@ enum MediaType {
 }
 
 model Report {
-  id         Int        @id @default(autoincrement())
-  slug       String     @unique
-  title      String
-  summary    String?
-  content    String
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  medias     Media[]
-  likes      Like[]
-  comments   Comment[]
-
-  // شمارنده‌های سریع برای لیست‌ها
-  likesCount    Int      @default(0)
-  commentsCount Int      @default(0)
+  id            Int       @id @default(autoincrement())
+  slug          String    @unique
+  title         String
+  summary       String?
+  content       String?
+  medias        Media[]
+  likes         Like[]
+  comments      Comment[]
+  likesCount    Int       @default(0)
+  commentsCount Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Media {
-  id        Int        @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
+  report    Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
   reportId  Int
-  report    Report     @relation(fields: [reportId], references: [id])
-  type      MediaType
+  type      MediaType @default(IMAGE)
   url       String
   width     Int?
   height    Int?
   duration  Int?
-  createdAt DateTime   @default(now())
+  createdAt DateTime  @default(now())
 }
 
 model Like {
