@@ -1,61 +1,65 @@
 "use client";
-import { useState } from "react";
 
-export default function CommentForm({ slug }: { slug: string }) {
+import { useState, useTransition } from "react";
+
+export default function CommentForm({ reportSlug }: { reportSlug: string }) {
   const [author, setAuthor] = useState("");
   const [content, setContent] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function submit(e: React.FormEvent) {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (busy) return;
-    setBusy(true);
-    try {
+    if (!content.trim()) return;
+
+    start(async () => {
+      setMsg(null);
       const res = await fetch(
-        `/api/reports/${encodeURIComponent(slug)}/comment`,
+        `/api/reports/${encodeURIComponent(reportSlug)}/comment`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ author, content }),
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            author: author.trim() || null,
+            content: content.trim(),
+          }),
         }
       );
-      const data = await res.json().catch(() => ({}));
+
       if (res.ok) {
         setAuthor("");
         setContent("");
-        setMsg("ثبت شد ✅ (پس از تأیید نمایش داده می‌شود)");
+        setMsg("نظر شما ثبت شد و پس از تأیید نمایش داده می‌شود.");
       } else {
-        setMsg(data.error || "خطا در ثبت نظر");
+        setMsg("ارسال نظر ناموفق بود.");
       }
-    } finally {
-      setBusy(false);
-    }
-  }
+    });
+  };
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form onSubmit={submit} className="border rounded p-4 space-y-3">
+      <h3 className="font-bold">ارسال نظر</h3>
       <input
         value={author}
         onChange={(e) => setAuthor(e.target.value)}
         placeholder="نام (اختیاری)"
-        className="w-full border rounded p-2"
+        className="w-full border rounded px-3 py-2"
       />
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        required
-        rows={4}
-        placeholder="نظر شما..."
-        className="w-full border rounded p-2"
+        placeholder="متن نظر شما…"
+        className="w-full border rounded px-3 py-2 min-h-[120px]"
       />
-      <button
-        className="px-3 py-2 rounded bg-emerald-600 text-white disabled:opacity-50"
-        disabled={busy}
-      >
-        ارسال نظر
-      </button>
-      {msg && <div className="text-sm text-slate-600">{msg}</div>}
+      <div className="flex items-center gap-3">
+        <button
+          disabled={pending}
+          className="px-3 py-2 rounded bg-emerald-600 text-white disabled:opacity-60"
+        >
+          ارسال نظر
+        </button>
+        {msg && <span className="text-slate-600 text-sm">{msg}</span>}
+      </div>
     </form>
   );
 }
