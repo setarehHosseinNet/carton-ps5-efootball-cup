@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { destroySession } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
+// هم GET و هم POST را ساپورت کن تا <Link> یا <form> هردو کار کنند
 export async function GET(req: Request) {
   await destroySession();
-  const origin = new URL(req.url).origin;
-  return NextResponse.redirect(new URL("/", origin));
+  return NextResponse.redirect(new URL("/", req.url));
 }
-export const POST = GET;
+export async function POST(req: Request) {
+  return GET(req);
+}
