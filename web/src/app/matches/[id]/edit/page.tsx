@@ -1,75 +1,172 @@
 import prisma from "@/lib/db";
-import { notFound } from "next/navigation";
-import { updateMatch } from "../../actions";
-import { requireAdmin } from "@/lib/auth";
-import dayjs from "dayjs";
+import { notFound, redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth";
+import { updateMatchById, deleteMatchById } from "./actions";
+import ConfirmDeleteButton from "@/components/ConfirmDeleteButton";
+import JalaliDateTime from "@/components/JalaliDateTime.client";
 
-type Params = { id: string };
 export const dynamic = "force-dynamic";
 
-export default async function EditMatchPage({ params }: { params: Promise<Params> }) {
-  await requireAdmin();
+type Params = { id: string };
 
+export default async function EditMatchPage({
+  params,
+}: {
+  params: Promise<Params>;
+}) {
   const { id } = await params;
-  const mid = Number(id);
-  if (!Number.isFinite(mid)) notFound();
+  const matchId = Number(id);
+  if (!Number.isFinite(matchId)) notFound();
 
-  const m = await prisma.match.findUnique({
-    where: { id: mid },
-    select: {
-      id: true,
-      kickoffAt: true,
-      homeScore: true,
-      awayScore: true,
-      home: { select: { fullName: true } },
-      away: { select: { fullName: true } },
-    },
-  });
-  if (!m) notFound();
+  const user = await getSessionUser();
+  if (!user) redirect(`/login?next=/matches/${encodeURIComponent(matchId)}/edit`);
 
-  // مقداردهی اولیه input type="datetime-local"
-  const kickoffDefault = m.kickoffAt ? dayjs(m.kickoffAt).format("YYYY-MM-DDTHH:mm") : "";
+  const [match, groups, players] = await Promise.all([
+    prisma.match.findUnique({
+      where: { id: matchId },
+      include: { group: true, home: true, away: true },
+    }),
+    prisma.group.findMany({ orderBy: { id: "asc" } }),
+    prisma.player.findMany({ orderBy: { fullName: "asc" } }),
+  ]);
+
+  if (!match) notFound();
+
+  const kickoffLocal = match.kickoffAt
+    ? toLocalDatetimeValue(match.kickoffAt)
+    : "";
 
   return (
-    <main className="container mx-auto p-6" dir="rtl">
-      <h1 className="text-xl font-bold mb-6">
-        ویرایش بازی: {m.home?.fullName ?? "?"} - {m.away?.fullName ?? "?"}
-      </h1>
+    <main dir="rtl" className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-4">ویرایش بازی #{matchId}</h1>
 
-      <form action={async (fd) => updateMatch(mid, fd)} className="space-y-4 max-w-md">
-        <label className="block">
-          <div className="mb-1">زمان برگزاری</div>
-          <input
-            name="kickoff"
-            type="datetime-local"
-            defaultValue={kickoffDefault}
-            className="w-full border rounded p-2"
-          />
-        </label>
-
-        <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <div className="mb-1">گل‌های میزبان</div>
-            <input
-              name="homeScore"
-              type="number"
-              defaultValue={m.homeScore ?? ""}
-              className="w-full border rounded p-2"
-            />
-          </label>
-          <label className="block">
-            <div className="mb-1">گل‌های میهمان</div>
-            <input
-              name="awayScore"
-              type="number"
-              defaultValue={m.awayScore ?? ""}
-              className="w-full border rounded p-2"
-            />
-          </label>
+      {/* فرم ویرایش */}
+      <form action={updateMatchById.bind(null, matchId)} className="space-y-4 max-w-2xl">
+        {/* گروه */}
+        <div>
+          <label className="block mb-1 font-medium">گروه</label>
+          <select
+            name="groupId"
+            defaultValue={String(match.groupId)}
+            className="w-full rounded border p-2"
+          >
+            {groups.map((g) => (
+              <option key={g.id} value={String(g.id)}>
+                {g.name || `Group ${g.id}`}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <button className="px-4 py-2 rounded bg-blue-600 text-white">ذخیره</button>
+        {/* میزبان / میهمان */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block mb-1 font-medium">میزبان</label>
+            <select
+              name="homeId"
+              defaultValue={String(match.homeId)}
+              className="w-full rounded border p-2"
+            >
+              {players.map((p) => (
+                <option key={p.id} value={String(p.id)}>
+                  {p.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block mb-1 font-medium">میهمان</label>
+            <select
+              name="awayId"
+              defaultValue={String(match.awayId)}
+              className="w-full rounded border p-2"
+            >
+              {players.map((p) => (
+                <option key={p.id} value={String(p.id)}>
+                  {p.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* هفته / گل‌ها */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block mb-1 font-medium">هفته</label>
+            <input
+              type="number"
+              name="week"
+              defaultValue={match.week ?? undefined}
+              className="w-full rounded border p-2"
+            />
+          </div>
+          <div>
+            <label className="block mb-1 font-medium">گل میزبان</label>
+            <input
+              type="number"
+              name="homeScore"
+              defaultValue={match.homeScore ?? undefined}
+              className="w-full rounded border p-2"
+            />
+          </div>
+          <div>
+            <label className="block mb-1 font-medium">گل میهمان</label>
+            <input
+              type="number"
+              name="awayScore"
+              defaultValue={match.awayScore ?? undefined}
+              className="w-full rounded border p-2"
+            />
+          </div>
+        </div>
+
+        {/* زمان و وضعیت */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+      
+  <label className="block mb-1 font-medium">زمان شروع</label>
+  <JalaliDateTime
+    name="kickoffAt"
+    defaultValueISO={match.kickoffAt ? match.kickoffAt.toISOString() : undefined}
+    className="w-full rounded border p-2"
+  />
+</div>
+
+          <div>
+            <label className="block mb-1 font-medium">وضعیت</label>
+            <select
+              name="status"
+              defaultValue={match.status}
+              className="w-full rounded border p-2"
+            >
+              <option value="SCHEDULED">در برنامه</option>
+              <option value="DONE">انجام‌شده</option>
+            </select>
+          </div>
+        </div>
+
+        <button className="px-4 py-2 rounded bg-black text-white">
+          ذخیره تغییرات
+        </button>
+      </form>
+
+      {/* حذف بازی: دکمهٔ کلاینتی داخل فرم Server Action */}
+      <form action={deleteMatchById.bind(null, matchId)} className="max-w-2xl mt-6">
+        <ConfirmDeleteButton
+          className="px-4 py-2 rounded bg-rose-600 text-white"
+          label="حذف بازی"
+          message="از حذف بازی مطمئن هستید؟"
+        />
       </form>
     </main>
   );
+}
+
+/** yyyy-MM-ddTHH:mm برای ورودی datetime-local */
+function toLocalDatetimeValue(d: Date) {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 }
