@@ -1,23 +1,45 @@
 import prisma from "@/lib/db";
+import Link from "next/link";
+import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlayersPage() {
-  const players = await prisma.player.findMany({
-    orderBy: [{ groupId: "asc" }, { fullName: "asc" }],
-    select: { id: true, fullName: true, dept: true, groupId: true },
-  });
+  const [items, user] = await Promise.all([
+    prisma.player.findMany({
+      orderBy: [{ groupId: "asc" }, { id: "asc" }],
+      include: { group: true },
+    }),
+    getSessionUser(),
+  ]);
+  const canEdit = Boolean(user);
 
   return (
-    <main className="container mx-auto p-6" dir="rtl">
-      <h1 className="text-2xl font-bold mb-4">بازیکنان</h1>
-      <ul className="space-y-2">
-        {players.map(p => (
-          <li key={p.id} className="border rounded p-3">
-            <div className="font-bold">{p.fullName}</div>
-            <div className="text-sm text-slate-600">
-              شماره: {p.fullName ?? "-"} • گروه: {p.groupId ?? "-"} • دپارتمان: {p.dept ?? "-"}
+    <main dir="rtl" className="container mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">بازیکن‌ها</h1>
+
+      <ul className="space-y-3">
+        {items.map((p) => (
+          <li
+            key={p.id}
+            className="flex items-center justify-between rounded border p-3"
+          >
+            <div>
+              <div className="font-medium">{p.fullName}</div>
+              <div className="text-xs text-slate-500">
+                گروه: {p.group?.name ?? p.groupId}
+                {p.dept ? ` • دپارتمان: ${p.dept}` : null}
+              </div>
             </div>
+
+            {canEdit && (
+              <Link
+                href={`/players/${p.id}/edit`}
+                className="px-3 py-1.5 rounded bg-slate-900 text-white"
+              >
+                ویرایش
+              </Link>
+            )}
           </li>
         ))}
       </ul>
