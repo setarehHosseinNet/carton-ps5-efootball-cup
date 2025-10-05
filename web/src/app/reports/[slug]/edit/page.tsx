@@ -1,82 +1,101 @@
 import prisma from "@/lib/db";
-import { notFound } from "next/navigation";
-import { requireUser } from "@/lib/auth";
-import { updateReport, deleteReport } from "../actions";
+import { notFound, redirect } from "next/navigation";
+import { getSessionUser } from "@/lib/auth";
+import { deleteReportBySlug, updateReportBySlug } from "../actions";
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic"; // برای دسترسی به کوکی در ریکوئست
 
 type Params = { slug: string };
+
+function safeSlug(raw: string | null | undefined) {
+  if (!raw) return null;
+  try {
+    const s = decodeURIComponent(raw).trim();
+    return s || null;
+  } catch {
+    return null;
+  }
+}
 
 export default async function EditReportPage({
   params,
 }: {
   params: Promise<Params>;
 }) {
-  // فقط کاربر وارد شده
-  await requireUser();
-
-  // Next 15: پارامترها Promise هستند
   const { slug } = await params;
+  const s = safeSlug(slug);
+  if (!s) notFound();
 
-  const report = await prisma.report.findUnique({
-    where: { slug },
-    select: { slug: true, title: true, summary: true, content: true },
+  // فقط کاربر لاگین شده
+  const me = await getSessionUser();
+  if (!me) redirect(`/login?next=${encodeURIComponent(`/reports/${s}/edit`)}`);
+
+  const report = await prisma.report.findFirst({
+    where: { slug: s },
+    select: { id: true, slug: true, title: true, summary: true, content: true },
   });
-
   if (!report) notFound();
 
   return (
-    <main dir="rtl" className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">ویرایش گزارش</h1>
+    <main className="container mx-auto p-6" dir="rtl">
+      <h1 className="text-2xl font-bold mb-4">ویرایش گزارش</h1>
 
       {/* فرم ویرایش */}
-      <form action={updateReport} className="space-y-4 max-w-2xl">
-        <input type="hidden" name="slug" value={report.slug} />
-
+      <form action={updateReportBySlug.bind(null, s)} className="space-y-4 max-w-2xl">
         <div>
-          <label className="block mb-1 text-sm font-medium">عنوان</label>
+          <label className="block text-sm mb-1">عنوان</label>
           <input
             name="title"
-            defaultValue={report.title}
-            className="w-full rounded border p-2"
-            required
+            defaultValue={report.title ?? ""}
+            className="w-full border rounded px-3 py-2"
           />
         </div>
 
         <div>
-          <label className="block mb-1 text-sm font-medium">خلاصه</label>
+          <label className="block text-sm mb-1">خلاصه</label>
           <input
             name="summary"
             defaultValue={report.summary ?? ""}
-            className="w-full rounded border p-2"
-            placeholder="اختیاری"
+            className="w-full border rounded px-3 py-2"
           />
         </div>
 
         <div>
-          <label className="block mb-1 text-sm font-medium">متن کامل</label>
+          <label className="block text-sm mb-1">متن</label>
           <textarea
             name="content"
+            rows={10}
             defaultValue={report.content ?? ""}
-            className="w-full rounded border p-2 h-48"
+            className="w-full border rounded px-3 py-2"
           />
         </div>
 
         <div className="flex gap-2">
           <button
             type="submit"
-            className="px-4 py-2 rounded bg-emerald-600 text-white"
+            className="px-4 py-2 rounded bg-blue-600 text-white"
           >
             ذخیره تغییرات
           </button>
+
+          <a
+            href={`/reports/${encodeURIComponent(s)}`}
+            className="px-4 py-2 rounded border"
+          >
+            انصراف
+          </a>
         </div>
       </form>
 
-      {/* حذف گزارش (فقط لاگین‌شده) */}
-      <form action={deleteReport.bind(null, report.slug)} className="mt-8">
+      {/* دکمه حذف */}
+      <form
+        action={deleteReportBySlug.bind(null, s)}
+        className="mt-8"
+      >
         <button
+          type="submit"
           className="px-4 py-2 rounded bg-rose-600 text-white"
-          // در صورت نیاز یک کامپوننت کلاینتی برای confirm اضافه کن
+          // اگر خواستی قبل از حذف confirm بگیری، یک کلاینت‌کامپوننت کوچک بساز
         >
           حذف گزارش
         </button>

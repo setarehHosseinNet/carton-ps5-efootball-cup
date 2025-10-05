@@ -80,27 +80,20 @@ model Media {
 }
 
 model Like {
-  id         Int     @id @default(autoincrement())
-  reportId   Int
-  report     Report  @relation(fields: [reportId], references: [id])
-  fingerprint String  // از کوکی+IP هش می‌سازیم
-  createdAt  DateTime @default(now())
-
-  @@unique([reportId, fingerprint])
+  id        Int     @id @default(autoincrement())
+  reportId  Int
+  report    Report  @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt DateTime @default(now())
 }
 
 model Comment {
-  id         Int        @id @default(autoincrement())
-  reportId   Int
-  report     Report     @relation(fields: [reportId], references: [id])
-  author     String?
-  content    String
-  createdAt  DateTime   @default(now())
-  approved   Boolean    @default(true)
-
-  parentId   Int?
-  parent     Comment?   @relation("CommentReplies", fields: [parentId], references: [id])
-  replies    Comment[]  @relation("CommentReplies")
+  id        Int     @id @default(autoincrement())
+  reportId  Int
+  report    Report  @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  author    String?
+  content   String
+  approved  Boolean @default(true)
+  createdAt DateTime @default(now())
 }
 model User {
   id           Int      @id @default(autoincrement())

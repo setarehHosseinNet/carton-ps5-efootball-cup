@@ -1,28 +1,18 @@
-// src/app/reports/[slug]/page.tsx
 import prisma from "@/lib/db";
 import { notFound } from "next/navigation";
 import Image from "next/image";
+import { getSessionUser } from "@/lib/auth";
+import { deleteReportBySlug } from "./actions"; // دقت کن این تابع را در actions.ts بسازیم (پایین گذاشتم)
 
-// کلاینت‌ها (از همین دایرکتوری)
+// اگر این دو فایل را داری، ایمپورت بماند؛ نداریشان فعلاً کامنت کن
 import LikeButton from "./like.client";
 import CommentForm from "./comment.client";
 
-export const dynamic = "force-dynamic" as const;
+export const dynamic = "force-dynamic";
 
 type Params = { slug: string };
 
-/** کمک‌تابع: decode/trim امن برای slug */
-function safeSlug(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  try {
-    const s = decodeURIComponent(raw).trim();
-    return s || null;
-  } catch {
-    return null;
-  }
-}
-
-/** متادیتا بر اساس گزارش — مفید برای SEO */
+/** متادیتا برای SEO */
 export async function generateMetadata({ params }: { params: Promise<Params> }) {
   const { slug } = await params;
   const s = safeSlug(slug);
@@ -39,7 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }) 
 }
 
 export default async function ReportPage({ params }: { params: Promise<Params> }) {
-  // ⚠️ در Next.js 15، params باید await شود
+  // ⬅️ همه‌چیز داخل خود تابع صفحه (اسکوپ درخواست)
   const { slug } = await params;
   const s = safeSlug(slug);
   if (!s) notFound();
@@ -55,27 +45,47 @@ export default async function ReportPage({ params }: { params: Promise<Params> }
       },
     },
   });
-
   if (!report) notFound();
 
-  const likesCount = report.likesCount ?? 0;
-  const commentsCount = report.commentsCount ?? report.comments.length;
+  // ⬅️ اینجا صدا بزن، نه بیرون فایل
+  const user = await getSessionUser();
+  const canEdit = !!user; // اگر خواستی محدود به نقش/مالک کن
 
   return (
     <main className="container mx-auto p-6" dir="rtl">
       {/* عنوان و خلاصه */}
       <header className="mb-6">
         <h1 className="text-3xl font-bold mb-1">{report.title}</h1>
-        {report.summary ? (
-          <p className="text-slate-600">{report.summary}</p>
-        ) : null}
+        {!!report.summary && <p className="text-slate-600">{report.summary}</p>}
       </header>
+
+      {/* دکمه‌های مدیریت فقط برای کسی که وارد شده */}
+      {canEdit && (
+        <div className="flex gap-2 mb-6">
+          <a
+            href={`/reports/${encodeURIComponent(report.slug)}/edit`}
+            className="px-3 py-2 rounded border"
+          >
+            ویرایش
+          </a>
+
+          {/* حذف با server action */}
+          <form action={async () => {
+            "use server";
+            await deleteReportBySlug(report.slug);
+          }}>
+            <button className="px-3 py-2 rounded bg-rose-600 text-white">
+              حذف
+            </button>
+          </form>
+        </div>
+      )}
 
       {/* گالری مدیا */}
       {report.medias.length > 0 && (
         <section className="mb-8">
           <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
-            {report.medias.map((m, i) =>
+            {report.medias.map((m) =>
               m.type === "IMAGE" ? (
                 <Image
                   key={m.id}
@@ -84,18 +94,9 @@ export default async function ReportPage({ params }: { params: Promise<Params> }
                   width={1200}
                   height={800}
                   className="rounded w-full h-auto"
-                  priority={i === 0}
-                  // اگر عکس‌ها از دامین خارجی می‌آیند و در next.config دامنه ثبت نشده،
-                  // می‌توانید موقتاً از این استفاده کنید:
-                  // unoptimized
                 />
               ) : (
-                <video
-                  key={m.id}
-                  src={m.url}
-                  controls
-                  className="rounded w-full"
-                />
+                <video key={m.id} src={m.url} controls className="rounded w-full" />
               )
             )}
           </div>
@@ -103,11 +104,9 @@ export default async function ReportPage({ params }: { params: Promise<Params> }
       )}
 
       {/* متن گزارش */}
-      {report.content && (
+      {!!report.content && (
         <article className="prose prose-slate rtl max-w-none mb-8" dir="rtl">
           <div
-            // اگر محتوای شما HTML خام است، بهتر است sanitize کنید.
-            // در حالت متن ساده، این تبدیل newline به <br/> کفایت می‌کند.
             dangerouslySetInnerHTML={{
               __html: report.content.replace(/\n/g, "<br/>"),
             }}
@@ -115,20 +114,20 @@ export default async function ReportPage({ params }: { params: Promise<Params> }
         </article>
       )}
 
-      {/* اکشن‌ها: لایک + شمارنده نظر */}
+      {/* لایک و شمارنده نظر */}
       <div className="flex items-center gap-4 mb-8">
-        <LikeButton reportSlug={report.slug} initialCount={likesCount} />
-        <span className="text-sm text-slate-500">💬 {commentsCount}</span>
+        {/* اگر LikeButton را داری */}
+        <LikeButton reportSlug={report.slug} initialCount={report.likesCount} />
+        <span className="text-sm text-slate-500">💬 {report.commentsCount}</span>
       </div>
 
-      {/* نظرات + فرم ارسال */}
+      {/* نظرات */}
       <section className="space-y-4">
         <h2 className="text-xl font-bold">نظرات</h2>
 
-        {/* فرم ارسال نظر */}
+        {/* اگر CommentForm را داری */}
         <CommentForm reportSlug={report.slug} />
 
-        {/* لیست نظرات تأیید شده */}
         <ul className="mt-6 space-y-3">
           {report.comments.length > 0 ? (
             report.comments.map((c) => (
@@ -147,4 +146,15 @@ export default async function ReportPage({ params }: { params: Promise<Params> }
       </section>
     </main>
   );
+}
+
+/** decode/trim امن برای slug */
+function safeSlug(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const s = decodeURIComponent(raw).trim();
+    return s || null;
+  } catch {
+    return null;
+  }
 }

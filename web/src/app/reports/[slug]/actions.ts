@@ -1,43 +1,45 @@
 "use server";
 
 import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireUser } from "@/lib/auth";
 
-type ActionState = { ok: boolean; message?: string; slug?: string };
+/** ویرایش */
+export async function updateReportBySlug(slug: string, formData: FormData) {
+  await requireUser(`/reports/${encodeURIComponent(slug)}/edit`);
 
-export async function updateReport(_: ActionState | undefined, formData: FormData): Promise<ActionState> {
-  // فقط کاربر لاگین اجازه دارد
-  await requireUser();
-
-  const slug = String(formData.get("slug") || "");
-  const title = String(formData.get("title") || "");
-  const summary = String(formData.get("summary") || "");
-  const content = String(formData.get("content") || "");
-
-  if (!slug) return { ok: false, message: "شناسه گزارش نامعتبر است." };
-  if (!title.trim()) return { ok: false, message: "عنوان الزامی است." };
+  const title   = (formData.get("title") as string | null)?.trim() ?? "";
+  const summary = (formData.get("summary") as string | null)?.trim() ?? "";
+  const content = (formData.get("content") as string | null)?.trim() ?? "";
 
   await prisma.report.update({
     where: { slug },
     data: { title, summary, content },
   });
 
-  // رفرش لیست و صفحه‌ی جزئیات
-  revalidatePath("/");
   revalidatePath(`/reports/${encodeURIComponent(slug)}`, "page");
-
-  return { ok: true, slug };
+  redirect(`/reports/${encodeURIComponent(slug)}`);
 }
 
-export async function deleteReport(slug: string) {
-  // فقط کاربر لاگین اجازه دارد
-  await requireUser();
+/** حذف کامل گزارش + وابستگی‌ها */
+export async function deleteReportBySlug(slug: string) {
+  await requireUser(`/reports/${encodeURIComponent(slug)}/edit`);
 
-  await prisma.report.delete({ where: { slug } });
+  // فقط id لازم داریم
+  const report = await prisma.report.findUnique({
+    where: { slug },
+    select: { id: true },
+  });
+  if (!report) return;
 
-  // رفرش و برگشت به صفحه اصلی
-  revalidatePath("/");
-  redirect("/");
+  await prisma.$transaction([
+    prisma.media.deleteMany({ where: { reportId: report.id } }),
+    prisma.like.deleteMany({ where: { reportId: report.id } }),
+    prisma.comment.deleteMany({ where: { reportId: report.id } }),
+    prisma.report.delete({ where: { id: report.id } }),
+  ]);
+
+  revalidatePath("/reports", "page");
+  redirect("/reports");
 }
