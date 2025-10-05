@@ -77,3 +77,36 @@ export async function isLoggedIn() {
   const jar = await cookies();
   return !!jar.get(COOKIE)?.value;
 }
+/** تشخیص ادمین: اگر در اسکیما role داری از role==='ADMIN' استفاده کن.
+ * اگر نداری، موقتاً با ایمیل‌های ENV قفل کن. */
+function isAdminUser(u: any) {
+  // روش ۱: مبتنی بر role (اگر داری)
+  if (u?.role && String(u.role).toUpperCase() === "ADMIN") return true;
+
+  // روش ۲: لیست ایمیل‌ها در env (مثال)
+  const whitelist = (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (u?.email && whitelist.includes(String(u.email).toLowerCase())) return true;
+
+  return false;
+}
+
+/** فقط ادمین دسترسی داشته باشد؛ در غیر این صورت ریدایرکت یا 404 کن */
+export async function requireAdmin(next?: string) {
+  const u = await getSessionUser();
+  if (!u) {
+    redirect(`/login${next ? `?next=${encodeURIComponent(next)}` : ""}`);
+  }
+  if (!isAdminUser(u)) {
+    redirect("/"); // یا می‌تونی notFound() صدا بزنی
+  }
+  return u;
+}
+
+/** یوزری که ادمین نیست، UI مدیریتی نبیند */
+export async function getCurrentUserIsAdmin() {
+  const u = await getSessionUser();
+  return !!u && isAdminUser(u);
+}
