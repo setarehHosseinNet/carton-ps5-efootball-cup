@@ -1,38 +1,85 @@
 "use server";
 
-import prisma from "@/lib/db";
+import { prisma } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { randomUUID, createHash } from "crypto";
+import { promises as fs } from "fs";
+import path from "path";
 
-function makeSlug(title: string) {
-  const rand = Math.random().toString(36).slice(2, 8);
-  // اگر می‌خواهی فارسی بماند اشکالی ندارد؛ فقط هنگام redirect انکد می‌کنیم
-  return `${rand}--${title.trim().replace(/\s+/g, "-")}`;
+function slugifyFa(s: string) {
+  return (s ?? "")
+    .trim()
+    .replace(/\u200c/g, "")                  // ZWNJ
+    .replace(/[^\p{L}\p{N}\s_-]+/gu, "")     // ✅ خط تیره درست: _-
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
 }
 
-export async function createReport(form: FormData) {
-  const title   = String(form.get("title") ?? "").trim();
-  const summary = String(form.get("summary") ?? "");
-  const content = String(form.get("content") ?? "");
-  const mediaUrl = String(form.get("mediaUrl") ?? ""); // از UploadField می‌آید
+function extFromName(name: string) {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i).toLowerCase() : "";
+}
 
-  if (!title) throw new Error("title is required");
+export async function createReport(formData: FormData): Promise<void> {
+  const me = await requireUser("/login");
+  if (me.role !== "admin") throw new Error("اجازه دسترسی ندارید.");
 
-  const slug = makeSlug(title);
+  const title    = (formData.get("title") as string | null)?.trim() ?? "";
+  const slugIn   = (formData.get("slug") as string | null) ?? "";
+  const summary  = (formData.get("summary") as string | null)?.trim() || null;
+  const content  = (formData.get("content") as string | null)?.trim() ?? "";
 
-  const report = await prisma.report.create({
-    data: { title, summary, content, slug },
-  });
+  if (!title || !content) throw new Error("عنوان و متن الزامی است.");
 
-  if (mediaUrl) {
-    await prisma.media.create({
-      data: {
-        reportId: report.id,
-        url: mediaUrl,
-        type: /\.(mp4|mov|webm)$/i.test(mediaUrl) ? "VIDEO" : "IMAGE",
-      },
-    });
+  // ساخت اسلاگ یکتا
+  let base = slugifyFa(slugIn || title);
+  if (!base) base = `post-${Date.now()}`;
+  let slug = base, i = 2;
+  while (await prisma.report.findUnique({ where: { slug } })) slug = `${base}-${i++}`;
+
+  // آماده‌سازی مسیر آپلود (public/uploads/YYYY/MM)
+  const now = new Date();
+  const yy  = String(now.getFullYear());
+  const mm  = String(now.getMonth() + 1).padStart(2, "0");
+  const uploadsDir = path.join(process.cwd(), "public", "uploads", yy, mm);
+  await fs.mkdir(uploadsDir, { recursive: true });
+
+  // فایل‌ها از input name="media" می‌آیند
+  const files = formData.getAll("media") as File[];
+  const mediaCreates: { url: string; type: "IMAGE" | "VIDEO" }[] = [];
+
+  for (const file of files) {
+    if (!(file instanceof File)) continue;
+    if (!file.size) continue;
+
+    const buf = Buffer.from(await file.arrayBuffer());
+    const hash = createHash("sha1").update(buf).digest("hex").slice(0, 10);
+    const safeBase = slugifyFa(file.name.replace(/\.[^.]*$/, "")) || "file";
+    const ext = extFromName(file.name) || (file.type.startsWith("image/") ? ".jpg" : ".bin");
+    const filename = `${safeBase}-${hash}-${randomUUID().slice(0, 8)}${ext}`;
+    const abs = path.join(uploadsDir, filename);
+    await fs.writeFile(abs, buf);
+
+    const url = `/uploads/${yy}/${mm}/${filename}`;
+    const type = file.type.startsWith("video/") ? "VIDEO" : "IMAGE";
+    mediaCreates.push({ url, type });
   }
 
-  // نکته اصلی: URL باید ASCII باشد => انکد فقط روی slug
-  redirect(`/reports/${encodeURIComponent(slug)}`);
+  await prisma.$transaction(async (tx) => {
+    await tx.report.create({
+      data: {
+        slug, title, summary, content,
+        medias: mediaCreates.length
+          ? { create: mediaCreates }
+          : undefined,
+      },
+    });
+  });
+
+  revalidatePath("/reports");
+  revalidatePath(`/reports/${slug}`);
+  redirect(`/reports/${slug}?ok=1`);
 }
