@@ -1,14 +1,25 @@
 "use server";
-import prisma from "@/lib/db";
-import { requireUser } from "@/lib/auth";
-import { redirect } from "next/navigation";
 
-export async function createGroupAction(_: any, formData: FormData) {
-  await requireUser("/admin/groups/new");
+import { prisma } from "@/lib/db";
+import { revalidatePath } from "next/cache";
 
-  const name = String(formData.get("name") || "").trim();
-  if (!name) return { error: "نام گروه لازم است." };
+export type CreateGroupState = { error?: string; success?: boolean };
 
-  await prisma.group.create({ data: { name } });
-  redirect("/groups"); // یا صفحهٔ موفقیت
+export async function createGroupAction(
+  _prevState: CreateGroupState,
+  formData: FormData
+): Promise<CreateGroupState> {
+  const name = (formData.get("name") as string | null)?.trim() ?? "";
+  if (!name) return { error: "نام گروه الزامی است." };
+
+  try {
+    await prisma.group.create({ data: { name } });
+    revalidatePath("/admin/groups");
+    revalidatePath("/groups");
+    return { success: true };
+  } catch (e: any) {
+    // یونیک بودن name در مدل Group
+    if (e?.code === "P2002") return { error: "نام گروه تکراری است." };
+    return { error: "خطای غیرمنتظره." };
+  }
 }

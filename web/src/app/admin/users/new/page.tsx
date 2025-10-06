@@ -1,32 +1,46 @@
-import { createUserAction } from "./actions";
+// web/src/app/admin/users/new/page.tsx
+import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth";
+import NewUserForm from "./NewUserForm.client";
 
-export default async function NewUserPage({ searchParams }: { searchParams: { ok?: string }}) {
+// ✅ تایپ محلی برای کوئری‌استرینگ
+type SearchParams = Record<string, string | string[] | undefined>;
+
+const pickFirst = (v: string | string[] | undefined) =>
+  Array.isArray(v) ? v[0] : v;
+
+/** ✅ Next 15: searchParams باید Promise باشد */
+export async function generateMetadata(
+  { searchParams }: { searchParams?: Promise<SearchParams> }
+): Promise<Metadata> {
+  const sp = (await searchParams) ?? {};
+  const ok = pickFirst(sp.ok);
+  return { title: ok ? "Users – New (OK)" : "Users – New" };
+}
+
+/** ✅ Next 15: امضای صفحه با Promise */
+export default async function NewUserPage(
+  { searchParams }: { searchParams?: Promise<SearchParams> }
+) {
   const me = await requireUser("/admin/users/new");
   if (me.role !== "admin") throw new Error("دسترسی ندارید.");
 
+  const sp = (await searchParams) ?? {};
+  const ok = pickFirst(sp.ok);
+  const showSuccess =
+    typeof ok === "string" && ["1", "true", "ok"].includes(ok.toLowerCase());
+
   return (
     <main className="container mx-auto max-w-lg p-6">
-      <h1 className="text-2xl font-bold mb-6">ساخت کاربر</h1>
-      {searchParams.ok && <div className="mb-4 text-green-700">کاربر ایجاد شد.</div>}
-      <form action={createUserAction} className="space-y-4">
-        <div>
-          <label className="block mb-1">نام کاربری</label>
-          <input name="username" required className="w-full border rounded p-2" />
+      <h1 className="mb-6 text-2xl font-bold">ساخت کاربر</h1>
+
+      {showSuccess && (
+        <div className="mb-4 rounded bg-emerald-50 px-3 py-2 text-emerald-700">
+          کاربر ایجاد شد.
         </div>
-        <div>
-          <label className="block mb-1">رمز عبور</label>
-          <input name="password" type="password" required className="w-full border rounded p-2" />
-        </div>
-        <div>
-          <label className="block mb-1">نقش</label>
-          <select name="role" className="w-full border rounded p-2">
-            <option value="user">user</option>
-            <option value="admin">admin</option>
-          </select>
-        </div>
-        <button className="px-4 py-2 rounded bg-emerald-600 text-white">ایجاد</button>
-      </form>
+      )}
+
+      <NewUserForm />
     </main>
   );
 }

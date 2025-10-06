@@ -1,31 +1,31 @@
+// src/app/api/auth/me/route.ts
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-/**
- * این اندپوینت نقش کاربر را از کوکی می‌خواند.
- * اگر شما قبلاً کوکی دیگری می‌گذارید، اینجا مطابقش تغییر بده:
- * - "sess" حاوی JSON { name, role }
- * - یا کوکی ساده "role"
- */
+type Session = {
+  id: number;
+  username: string;
+  role: "admin" | "user";
+  // هر فیلد دیگری که در سشن ذخیره می‌کنی...
+};
+
 export async function GET() {
-  const jar = cookies();
+  // ✅ در Next 15 باید await کنیم (در Edge هم ok است)
+  const jar = await cookies();
 
-  let role = "guest";
-  let name = "کاربر";
-
-  const sessRaw = jar.get("sess")?.value || jar.get("session")?.value;
-  if (sessRaw) {
-    try {
-      const s = JSON.parse(sessRaw);
-      role = s?.role || role;
-      name = s?.name || name;
-    } catch { /* ignore */ }
-  } else {
-    role = jar.get("role")?.value || role;
+  // هر دو نام محتمل کوکی را چک کن
+  const raw = jar.get("sess")?.value ?? jar.get("session")?.value;
+  if (!raw) {
+    return NextResponse.json({ ok: false, user: null });
   }
 
-  if (role === "guest") {
-    return NextResponse.json({ user: null }, { status: 401 });
+  try {
+    const session = JSON.parse(raw) as Partial<Session>;
+    if (!session || !session.username) {
+      return NextResponse.json({ ok: false, user: null });
+    }
+    return NextResponse.json({ ok: true, user: session });
+  } catch {
+    return NextResponse.json({ ok: false, user: null });
   }
-  return NextResponse.json({ user: { name, role } });
 }

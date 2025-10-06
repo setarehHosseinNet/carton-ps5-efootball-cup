@@ -36,6 +36,7 @@ model Player {
   awayMatches Match[] @relation("AwayPlayer")
 
   @@index([groupId])
+  
 }
 
 model Match {
