@@ -1,0 +1,9 @@
+import type { Metadata } from "next";
+
+export async function generateMetadata(
+  { searchParams }: { searchParams?: Promise<Search> }
+): Promise<Metadata> {
+  const sp = (await searchParams) ?? {};
+  const rawOk = Array.isArray(sp.ok) ? sp.ok[0] : sp.ok;
+  return { title: rawOk ? "Users – New (OK)" : "Users – New" };
+}

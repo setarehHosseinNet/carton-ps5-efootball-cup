@@ -1,4 +1,4 @@
-﻿import { mkdir, writeFile } from "fs/promises";
+import { mkdir, writeFile } from "fs/promises";
 import { extname, join } from "path";
 import { randomUUID } from "crypto";
 
@@ -15,7 +15,9 @@ export async function saveFilesFromForm(files: File[]): Promise<SavedFile[]> {
   for (const f of files) {
     if (!f.size) continue;
     const buf = Buffer.from(await f.arrayBuffer());
-    if (buf.length > 50 * 1024 * 1024) throw new Error("حجم فایل بیش از حد مجاز است.");
+    if (buf.length > 50 * 1024 * 1024) { // 50MB
+      throw new Error("حجم فایل بیش از حد مجاز است.");
+    }
 
     const mime = f.type || "";
     const isImage = mime.startsWith("image/");
@@ -27,7 +29,7 @@ export async function saveFilesFromForm(files: File[]): Promise<SavedFile[]> {
     const full = join(dir, filename);
     await writeFile(full, buf);
 
-    const url = "/uploads/" + dir.split("uploads")[1].replace(/\\\\/g,"/").replace(/^\\//,"") + "/" + filename;
+    const url = `/uploads/${dir.split("uploads\\").pop()?.replace(/\\/g,"/")}/${filename}`;
     saved.push({ url, path: full, type: isImage ? "IMAGE" : "VIDEO" });
   }
   return saved;
