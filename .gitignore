@@ -1,0 +1,11 @@
+﻿web/node_modules/
+web/.next/
+web/.turbo/
+**/*.log
+web/prisma/*.sqlite
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+DEV.md
+test.py
