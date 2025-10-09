@@ -1,44 +1,59 @@
 // web/src/app/login/page.tsx
-import { loginAction } from "./actions"; // امضایش: (fd: FormData) => Promise<{ok:boolean; error?:string}>
-import { redirect } from "next/navigation";
+import { loginAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-export default function LoginPage() {
-  // ✅ Server Action تک‌آرگومانی که Promise<void> برمی‌گرداند
-  async function submit(fd: FormData): Promise<void> {
-    "use server";
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-    const res = await loginAction(fd); // نتیجه را عمداً برنمی‌گردانیم
-    // اگر خواستی بعد از موفقیت ریدایرکت هم بکنی:
-    if (res?.ok) {
-      const next = (fd.get("next") as string) || "/";
-      redirect(next);
+export default async function LoginPage({ searchParams }: { searchParams: SearchParams }) {
+    const sp = await searchParams;
+    const next =
+        typeof sp.next === "string" && sp.next.startsWith("/") ? sp.next : "/";
+
+    const error = typeof sp.error === "string" ? sp.error : "";
+    const errorMsg =
+        error === "empty"   ? "نام کاربری و رمز عبور را وارد کنید."
+            : error === "invalid" ? "نام کاربری یا رمز عبور نادرست است."
+                : "";
+
+    // فرم مستقیماً Server Action را صدا می‌زند
+    async function submit(fd: FormData) {
+        "use server";
+        // loginAction خودش در موفقیت/خطا redirect می‌کند
+        await loginAction(fd);
     }
-    // در صورت خطا هم می‌تونی لاگ/کوکی/ریدایرکت بزنی
-  }
 
-  return (
-    <main className="container mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-bold mb-4">ورود</h1>
+    return (
+        <main className="container mx-auto max-w-md p-6">
+            <h1 className="text-2xl font-bold mb-4">ورود</h1>
 
-      {/* ✅ اکنون action امضای درست دارد */}
-      <form action={submit} className="space-y-3">
-        <div>
-          <label className="block mb-1">نام‌کاربری</label>
-          <input name="username" className="w-full border rounded p-2" required />
-        </div>
+            {errorMsg && (
+                <p className="mb-3 rounded border border-red-300 bg-red-50 p-2 text-red-700">
+                    {errorMsg}
+                </p>
+            )}
 
-        <div>
-          <label className="block mb-1">رمز</label>
-          <input name="password" type="password" className="w-full border rounded p-2" required />
-        </div>
-
-        {/* مسیر مقصد پس از ورود */}
-        <input type="hidden" name="next" value="/" />
-
-        <button className="w-full rounded bg-indigo-600 text-white py-2">ورود</button>
-      </form>
-    </main>
-  );
+            <form action={submit} className="space-y-3">
+                <input
+                    name="username"
+                    placeholder="نام کاربری"
+                    required
+                    className="border p-2 w-full"
+                    autoComplete="username"
+                />
+                <input
+                    name="password"
+                    type="password"
+                    placeholder="رمز عبور"
+                    required
+                    className="border p-2 w-full"
+                    autoComplete="current-password"
+                />
+                <input type="hidden" name="next" value={next} />
+                <button type="submit" className="border px-4 py-2 w-full">
+                    ورود
+                </button>
+            </form>
+        </main>
+    );
 }
