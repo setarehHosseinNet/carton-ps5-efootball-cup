@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      # فقط برای اطمینان از مسیرها و فایل‌ها
+      - name: Debug tree
+        run: |
+          pwd
+          ls -la
+          ls -la web
+          node -v
+          pnpm -v
+
+      - name: Install dependencies
+        working-directory: web
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Prisma generate
+        working-directory: web
+        env:
+          # اگر schema.prisma از env("DATABASE_URL") استفاده کند، این متغیر کمک می‌کند
+          DATABASE_URL: file:./prisma/tournament.sqlite
+        run: pnpm prisma generate
+
+      - name: Build
+        working-directory: web
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+        run: pnpm build

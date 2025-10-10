@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./tournament.sqlite"
+}
+
+model Group {
+  id      Int      @id @default(autoincrement())
+  name    String   @unique
+  players Player[]
+  matches Match[]
+}
+
+enum MatchStatus {
+  SCHEDULED
+  DONE
+}
+
+model Player {
+  id        Int      @id @default(autoincrement())
+  fullName  String
+  dept      String?
+
+  // اگر می‌خواهید گروه اجباری باشد، این دو خط را به:
+  // groupId Int
+  // group   Group  @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  // تغییر دهید.
+  groupId   Int?
+  group     Group?   @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  // روابط به‌صورت واضح نام‌گذاری شده‌اند تا با فیلدها تداخل نکنند
+  homeMatches Match[] @relation("HomePlayer")
+  awayMatches Match[] @relation("AwayPlayer")
+
+  @@index([groupId])
+  
+}
+
+model Match {
+  id      Int    @id @default(autoincrement())
+
+  // گروه (اختیاری؛ مطابق بالا می‌توانید اجباری کنید)
+  groupId Int?
+  group   Group? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  // تیم‌ها
+  homeId  Int
+  home    Player @relation("HomePlayer", fields: [homeId], references: [id], onDelete: Restrict)
+  awayId  Int
+  away    Player @relation("AwayPlayer", fields: [awayId], references: [id], onDelete: Restrict)
+
+  // زمان شروع (نام استاندارد: kickoffAt) — اگر ستون DB شما kickOff است:
+  kickoffAt DateTime? @map("kickOff")
+
+  // نتایج (نام استاندارد: homeScore / awayScore) — اگر ستون‌های DB شما gHome/gAway هستند:
+  homeScore Int @default(0) @map("gHome")
+  awayScore Int @default(0) @map("gAway")
+
+  status  MatchStatus @default(SCHEDULED)
+  week    Int?
+
+  // ایندکس‌های مفید
+  @@index([groupId])
+  @@index([homeId])
+  @@index([awayId])
+  @@index([kickoffAt])
+
+  // اگر دوست دارید از ثبت دوباره یک بازی در یک زمان جلوگیری کنید:
+  // @@unique([homeId, awayId, kickoffAt])
+}
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+model Report {
+  id         Int        @id @default(autoincrement())
+  slug       String     @unique
+  title      String
+  summary    String?
+  content    String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  medias     Media[]
+  likes      Like[]
+  comments   Comment[]
+
+  // شمارنده‌های سریع برای لیست‌ها
+  likesCount    Int      @default(0)
+  commentsCount Int      @default(0)
+}
+
+model Media {
+  id        Int        @id @default(autoincrement())
+  reportId  Int
+  report    Report     @relation(fields: [reportId], references: [id])
+  type      MediaType
+  url       String
+  width     Int?
+  height    Int?
+  duration  Int?
+  createdAt DateTime   @default(now())
+}
+
+model Like {
+  id        Int     @id @default(autoincrement())
+  reportId  Int
+  report    Report  @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Comment {
+  id        Int     @id @default(autoincrement())
+  reportId  Int
+  report    Report  @relation(fields: [reportId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  author    String?
+  content   String
+  approved  Boolean @default(true)
+  createdAt DateTime @default(now())
+}
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("user") // "admin" یا "user"
+  createdAt    DateTime @default(now())
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime // مثلاً 7 روز بعد؛ در کد ست می‌کنیم
+}
